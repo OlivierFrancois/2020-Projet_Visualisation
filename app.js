@@ -3,7 +3,6 @@ async function loadData(path) {
         fetch(path)
         .then(response => response.json())
         .then((response) => {
-            console.log(response);
             resolve(response);
         })
     });
@@ -25,23 +24,33 @@ function getMax(data) {
 
 // Obtenir une couleur entre le blanc et le rouge selon la valeur passée en argument
 function colorByValue(max, min, val) {
-    let intnsty = (val - min) / (max - min);
+    let intensity
     let r, g;
-    if (intnsty > 0.5) {
-        r = 255;
-        g = Math.round(2 * (1 - intnsty) * 255);
+
+    // Pour ne pas faire essayer de calculer log(0)
+    if ((val - min) == 0) {
+        intensity = 0;
     } else {
-        g = 255;
-        r = Math.round(2 * intnsty * 255);
+        intensity = (Math.log(val - min)) / (Math.log(max - min));
     }
 
-    return "rgb(" + r.toString() + ", " + g.toString() + ", " + g.toString();
+    if (intensity > 0.5) {
+        r = 255;
+        g = Math.round(2 * (1 - intensity) * 255);
+    } else {
+        g = 255;
+        r = Math.round(2 * intensity * 255);
+    }
+
+    return "rgb(" + r.toString() + ", " + g.toString() + ", " + 0;
 }
 
 
 window.onload = async function () {
+    // Affichage de la date
     let dateContainer = document.getElementById('date-container');
     dateContainer.innerHTML = '2020-04-19'
+
     const dataPaths = {
         allData: 'https://coronavirusapi-france.now.sh/AllDataByDate?date=2020-04-19',
         franceGeojson: 'france.geojson'
@@ -49,7 +58,8 @@ window.onload = async function () {
 
     let globalData = await loadData(dataPaths.allData);
     let max = getMax(globalData.allFranceDataByDate);
-    console.log(max);
+    //console.log(max);
+
 
     // Définition du Canvas
     let options = {
@@ -65,7 +75,7 @@ window.onload = async function () {
     
     // Chargement de la map geojson
     let map = await d3.json(dataPaths.franceGeojson);
-    console.log(map);
+    //console.log(map);
     
     // Définition d'un tooltip
     let tooltip = d3.select("body").append("div")   
@@ -89,32 +99,52 @@ window.onload = async function () {
 
     drawMap();
 
+    //------- Changement de date -------//
     let changeDate = document.getElementById('change-date');
     changeDate.addEventListener('change', async () => {
         dateContainer.innerHTML = changeDate.value;
         dataPaths.allData ='https://coronavirusapi-france.now.sh/AllDataByDate?date=' +  changeDate.value;
 
+        newglobalData = await loadData(dataPaths.allData);
         globalData = await loadData(dataPaths.allData);
         max = getMax(globalData.allFranceDataByDate);
 
         drawMap();
+        console.log('refresh');
     })
     
     function drawMap() {
     let areas = group.append('path')
         .attr('d', path)
         .attr('class', 'area')
-        // Couleur du département
+        // Remplissage du département
+        .attr('stroke', '#333333')
         .attr('fill', (dataGeoJSON) => {
+            // Dans l'API, l'ID des département est de la forme DEP-XX
             let id = 'DEP-' + dataGeoJSON.properties.code;
+
             let covidData = globalData.allFranceDataByDate.find((item) => {
-                return item['code'] === id;
+                return item['code'] === id &&
+                item['deces'] >= 0;
             })
-            if (covidData && covidData.deces)
-            return colorByValue(max, 0, covidData.deces)
+
+            if (covidData) {
+                let color;
+                
+                // Pour fix l'API qui n'a parfois pas définit de champs deces.
+                if (!covidData.deces) {
+                    color = colorByValue(max, 0, 0)
+                    //console.log(color);
+                } else {
+                    color = colorByValue(max, 0, covidData.deces)
+                }
+                
+                return color;
+            }
             else
-                return '#ffffff'
+                return '#ff00ff'
         })
+        // Survole de la souris sur un département
         .on("mouseover", (d) => {
             tooltip.transition()
                 .duration(200)
