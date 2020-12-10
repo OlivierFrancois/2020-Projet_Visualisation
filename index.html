@@ -12,23 +12,20 @@
     <main class="w-75 mx-auto bg-light p-1">
 
         <h1 class="ml-5">Visualisation de données</h1>
+        <div class="mx-auto" id="date-container"></div>
         
-
-        <h2>Aperçu général</h2>
-
+        <h2>Saturation des services de réanimation en France</h2>
+            <div class="d-flex justify-content-center btn-group" role="group" aria-label="Basic example">
+                <button id="previous-day" type="button" class="w-25 btn btn-info">Précédent</button>
+                <input class="btn btn-outline-info w-50" type="date" min="2020-03-18" max="2020-12-09" id="change-date">
+                <button id="next-day" type="button" class="w-25 btn btn-info">Suivant</button>
+            </div>
         <!-- Global Data -->
-        <div id="date-container"></div>
-        <div id="container-global-data">
-            <!-- Carte des contaminations -->
-            
-            
+        
+        <div class="d-flex justify-content-center border border-top-0 border-info">
+            <div class="bg-white border border-top-0" id="container-global-data"></div>
         </div>
 
-        <label for="change-date">yyyy-mm-dd</label>
-        <input type="date" min="2018-01-01" max="2020-12-05" id="change-date">
-
-        <h2>Contaminations en France au fil du temps</h2>        
-        <!-- cf carte "cases timeline" https://www.worldometers.info/coronavirus/worldwide-graphs/ -->
     </main>
 
     <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
