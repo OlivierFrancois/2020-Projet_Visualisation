@@ -53,7 +53,7 @@ window.onload = async function () {
 
     const dataPaths = {
         allData: 'https://coronavirusapi-france.now.sh/AllDataByDate?date=2020-04-19',
-        franceGeojson: 'france.geojson'
+        franceGeojson: 'france2.geojson'
     }
 
     let globalData = await loadData(dataPaths.allData);
@@ -105,27 +105,49 @@ window.onload = async function () {
         dateContainer.innerHTML = changeDate.value;
         dataPaths.allData ='https://coronavirusapi-france.now.sh/AllDataByDate?date=' +  changeDate.value;
 
-        newglobalData = await loadData(dataPaths.allData);
+        console.log('refresh1');
         globalData = await loadData(dataPaths.allData);
         max = getMax(globalData.allFranceDataByDate);
 
         drawMap();
-        console.log('refresh');
     })
     
     function drawMap() {
     let areas = group.append('path')
         .attr('d', path)
         .attr('class', 'area')
-        // Remplissage du département
-        .attr('stroke', '#333333')
-        .attr('fill', (dataGeoJSON) => {
-            // Dans l'API, l'ID des département est de la forme DEP-XX
-            let id = 'DEP-' + dataGeoJSON.properties.code;
+        // Survole de la souris sur un département
+        .on("mouseover", (d) => {
+            tooltip.transition()
+                .duration(20)
+                .style("opacity", .9);      
+            tooltip.html(() => {
+                let id = 'DEP-' + d.properties.code;
+                let covidData = globalData.allFranceDataByDate.find((item) => {
+                    return item['code'] === id;
+                })
 
+                let deces = (covidData && covidData.deces) ? (covidData.deces) : 0
+                return "Département : " + d.properties.nom + '<br>Réanimations : ' + deces
+            }) 
+                .style("left", (d3.event.pageX + 30) + "px")     
+                .style("top", (d3.event.pageY - 30) + "px")
+        })
+        .on("mouseout", function(d) {
+            tooltip.style("opacity", 0);
+            tooltip.html("")
+                .style("left", "-500px")
+                .style("top", "-500px");
+        })
+        // Bord et remplissage du département
+        .attr('stroke', '#333333')
+        .transition()
+        .duration(1000)
+        .style('fill', (dataGeoJSON) => {
+            // On met l'ID du dataGeoJSON au format de l'ID de l'API (DEP-XX)
+            let id = 'DEP-' + dataGeoJSON.properties.code;
             let covidData = globalData.allFranceDataByDate.find((item) => {
-                return item['code'] === id &&
-                item['deces'] >= 0;
+                return item['code'] === id
             })
 
             if (covidData) {
@@ -142,30 +164,8 @@ window.onload = async function () {
                 return color;
             }
             else
-                return '#ff00ff'
+                return '#000000'
         })
-        // Survole de la souris sur un département
-        .on("mouseover", (d) => {
-            tooltip.transition()
-                .duration(200)
-                .style("opacity", .9);      
-            tooltip.html(() => {
-                let id = 'DEP-' + d.properties.code;
-                let covidData = globalData.allFranceDataByDate.find((item) => {
-                    return item['code'] === id;
-                })
-
-                let deces = (covidData && covidData.deces) ? (covidData.deces) : 0
-                return "Département : " + d.properties.nom + '<br>Décès : ' + deces
-            }) 
-                .style("left", (d3.event.pageX + 30) + "px")     
-                .style("top", (d3.event.pageY - 30) + "px")
-        })
-        .on("mouseout", function(d) {
-            tooltip.style("opacity", 0);
-            tooltip.html("")
-                .style("left", "-500px")
-                .style("top", "-500px");
-        });
+        
     }
 }
