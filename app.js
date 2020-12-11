@@ -68,17 +68,25 @@ window.onload = async function () {
     let globalData = await loadData(dataPaths.allData);
     let max = getMax(globalData.allFranceDataByDate, dataKey);
 
-    // Options du canvas
-    let options = {
+    // Options du canvas de la map et du diagramme
+    let optionsMap = {
         width: 700,
-        height: 700
-    }
-    let canvas = d3.select('#container-global-data')
+        height: 700,
+    };
+    let canvasMap = d3.select('#container-map-data')
     .append('svg')
-    .attr('width', options.width)
-    .attr('height', options.height)
-
-
+    .attr('width', optionsMap.width)
+    .attr('height', optionsMap.height)
+    
+    let optionsDiag = {
+        width: 1000,
+        height: 400,
+        padding: 20,
+    };
+    let canvasDiagram = d3.select('#container-diagram-data')
+    .append('svg')
+    .attr('width', optionsDiag.width)
+    .attr('height', optionsDiag.height)
 
     //------- Changement de date -------//
     // Input
@@ -108,6 +116,7 @@ window.onload = async function () {
         globalData = await loadData(dataPaths.allData);
         max = getMax(globalData.allFranceDataByDate, dataKey);
         drawMap();
+        drawDiagram();
         console.log('refresh');
     }
     
@@ -123,7 +132,7 @@ window.onload = async function () {
     .style("opacity", 0);
 
     // Association des données de la map à des éléments "g" du DOM
-    let group = canvas.selectAll('g')
+    let group = canvasMap.selectAll('g')
     .data(map.features)
     .enter()
     .append('g')
@@ -132,74 +141,151 @@ window.onload = async function () {
     let projection = d3.geoMercator()
     .center([2.454071, 46.279229])
     .scale(2600)
-    .translate([options.width / 2, options.height / 2]);
+    .translate([optionsMap.width / 2, optionsMap.height / 2]);
 
     // Application de la projection et dessin
     let path = d3.geoPath().projection(projection);
     drawMap();
-    
 
+
+    //------- CREATION DU DIAGRAMME -------//
+    drawDiagram();
     
     //------- DESSIN DE LA MAP -------//
     function drawMap() {
         let areas = group.append('path')
-        .attr('d', path)
-        // Survole de la souris sur un département
-        .on("mouseover", (d) => {
-            tooltip.transition()
-            .duration(20)
-            .style("opacity", .9);      
-            tooltip.html(() => {
-                // Mise de l'ID du dataGeoJSON au format de l'ID de l'API (DEP-XX)
-                let id = 'DEP-' + d.properties.code;
-                let covidData = globalData.allFranceDataByDate.find((item) => {
-                    return item['code'] === id;
+            .attr('d', path)
+            // Survole de la souris sur un département
+            .on("mouseover", (d) => {
+                tooltip.transition()
+                .duration(20)
+                .style("opacity", .9);      
+                tooltip.html(() => {
+                    // Mise de l'ID du dataGeoJSON au format de l'ID de l'API (DEP-XX)
+                    let id = 'DEP-' + d.properties.code;
+                    let covidData = globalData.allFranceDataByDate.find((item) => {
+                        return item['code'] === id;
+                    })
+
+                    let dataKeyValue = (covidData && covidData[dataKey]) ? (covidData[dataKey]) : 0
+                    return "Département : " + d.properties.nom + '<br>Réanimations : ' + dataKeyValue
                 })
-
-                let dataKeyValue = (covidData && covidData[dataKey]) ? (covidData[dataKey]) : 0
-                return "Département : " + d.properties.nom + '<br>Réanimations : ' + dataKeyValue
+                .style("left", (d3.event.pageX + 30) + "px")
+                .style("top", (d3.event.pageY - 30) + "px");
             })
-            .style("left", (d3.event.pageX + 30) + "px")
-            .style("top", (d3.event.pageY - 30) + "px");
-        })
-        .on("mouseout", function(d) {
-            tooltip.style("opacity", 0);
-            tooltip.html("")
-            .style("left", "-500px")
-            .style("top", "-500px");
-        })
-        // Bord et remplissage du département
-        .attr('stroke', '#333333')
-        .attr('fill', (dataGeoJSON) => {
-            if (dataGeoJSON.color) {
-                return dataGeoJSON.color
-            } else {
-                return 'yellow';
-            }
-        })
-        .transition()
-        .duration(1000)
-        .style('fill', (dataGeoJSON) => {
-            // Mise de l'ID du dataGeoJSON au format de l'ID de l'API (DEP-XX)
-            let id = 'DEP-' + dataGeoJSON.properties.code;
-            let covidData = globalData.allFranceDataByDate.find(item => item['code'] === id)
-
-            if (covidData) {
-                let color;
-                // Pour éviter les erreurs si le champ n'existe pas dans l'API
-                if (!covidData[dataKey]) {
-                    color = colorByValue(max, 0, 0)
-                    //console.log(color);
+            .on("mouseout", function(d) {
+                tooltip.style("opacity", 0);
+                tooltip.html("")
+                    .style("left", "-500px")
+                    .style("top", "-500px");
+            })
+            // Bord et remplissage du département
+            .attr('stroke', '#333333')
+            .attr('fill', (dataGeoJSON) => {
+                if (dataGeoJSON.color) {
+                    return dataGeoJSON.color
                 } else {
-                    color = colorByValue(max, 0, covidData[dataKey])
+                    return 'yellow';
                 }
-                
-                dataGeoJSON.color = color;
-                return color;
-            }
-            else
-                return '#000000'
-        })
-        
+            })
+            .transition()
+            .duration(500)
+            .style('fill', (dataGeoJSON) => {
+                // Mise de l'ID du dataGeoJSON au format de l'ID de l'API (DEP-XX)
+                let id = 'DEP-' + dataGeoJSON.properties.code;
+                let covidData = globalData.allFranceDataByDate.find(item => item['code'] === id)
+
+                if (covidData) {
+                    let color;
+                    // Pour éviter les erreurs si le champ n'existe pas dans l'API
+                    if (!covidData[dataKey]) {
+                        color = colorByValue(max, 0, 0)
+                        //console.log(color);
+                    } else {
+                        color = colorByValue(max, 0, covidData[dataKey])
+                    }
+                    
+                    dataGeoJSON.color = color;
+                    return color;
+                }
+                else
+                    return '#000000'
+            })
     }
+
+    function drawDiagram() {
+        // Filtrage des données pour ne récupérer que les lignes qui concernent des départements
+        // et qui contiennent le champs sur lequel on veut visualiser
+        let filteredData = globalData.allFranceDataByDate.filter(item => {
+            return (
+                item.code[0] == 'D' &&
+                item[dataKey]
+            )
+        });
+
+        console.log(filteredData);
+
+        // Autant de rect qu'il y a de départements 
+		let selection = canvasDiagram.selectAll('rect').data(filteredData);
+
+		// Définition du dégradé de couleur vert -> rouge en fonction de la valeur max
+        let colorScale = d3.scaleLinear().domain([0, max]).range(['green', 'red']);
+        
+        let width = optionsDiag.width;
+        let height = optionsDiag.height;
+        let padding = optionsDiag.padding;
+
+		selection.enter()
+            .append('rect')
+            .on("mouseover", (d) => {
+                tooltip.transition()
+                .duration(20)
+                .style("opacity", .9);      
+                tooltip.html(() => {
+                    return "Département : " + d.nom + '<br>Réanimations : ' + d[dataKey]
+                })
+                .style("left", (d3.event.pageX + 30) + "px")
+                .style("top", (d3.event.pageY - 30) + "px");
+            })
+            .on("mouseout", function(d) {
+                tooltip.style("opacity", 0);
+                tooltip.html("")
+                    .style("left", "-500px")
+                    .style("top", "-500px");
+            })
+			.attr('height', 0)
+			.attr('width', (d) => (width - 2 * padding) / filteredData.length)
+			.attr('x', (d, i) => {
+                return (i * (width - 2 * padding) / filteredData.length + padding)
+            })
+			.attr('y', height - padding)
+			.transition()
+			.duration(1000)
+			.attr('height', (d) => {
+                if (d[dataKey] == 0) {
+                    return 1
+                } else {
+                    let temp1 =(height - 2 * padding) * d[dataKey] / max
+                    let temp2 = Math.log((height - 2 * padding) * d[dataKey] / max) * 50
+
+                    console.log(temp1, temp2)
+                    return (temp2);
+                }
+            })
+			.attr('y', (d) => {
+                if (d[dataKey] == 0) {
+                    return (height - padding - 1)
+                } else {
+                    let temp1 =(height - 2 * padding) * d[dataKey] / max;
+                    let temp2 = Math.log((height - 2 * padding) * d[dataKey] / max) * 50;
+
+                    return (height - padding - temp2)
+                }
+            })
+			.attr('stroke', '#000000')
+			.attr('fill', (d, i) => {
+                let color = colorByValue(max, 0, d[dataKey])
+                return color;
+            });
+	}
 }
