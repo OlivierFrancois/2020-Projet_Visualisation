@@ -79,7 +79,7 @@ window.onload = async function () {
     .attr('height', optionsMap.height)
     
     let optionsDiag = {
-        width: 1000,
+        width: document.getElementById('container-diagram-data').clientWidth,
         height: 400,
         padding: 20,
     };
@@ -223,20 +223,23 @@ window.onload = async function () {
             )
         });
 
-        console.log(filteredData);
-
         // Autant de rect qu'il y a de départements 
 		let selection = canvasDiagram.selectAll('rect').data(filteredData);
-
-		// Définition du dégradé de couleur vert -> rouge en fonction de la valeur max
-        let colorScale = d3.scaleLinear().domain([0, max]).range(['green', 'red']);
         
+
         let width = optionsDiag.width;
         let height = optionsDiag.height;
         let padding = optionsDiag.padding;
 
-		selection.enter()
-            .append('rect')
+        // Retrait des rect présents en trop après le binding des data
+        selection.exit()
+        .transition()
+        .duration(1000)
+        .attr("width", 0)
+        .remove();
+
+        selection.enter().append('rect')
+            // Tooltip
             .on("mouseover", (d) => {
                 tooltip.transition()
                 .duration(20)
@@ -253,39 +256,45 @@ window.onload = async function () {
                     .style("left", "-500px")
                     .style("top", "-500px");
             })
+
+            // Initialisation de la hauteur, largeur, x, y
 			.attr('height', 0)
 			.attr('width', (d) => (width - 2 * padding) / filteredData.length)
 			.attr('x', (d, i) => {
                 return (i * (width - 2 * padding) / filteredData.length + padding)
             })
-			.attr('y', height - padding)
+            .attr('y', height - padding)
+
+            // Update de la hauteur, largeur, x, y en fonction de d (data courante)
+            .merge(selection)
 			.transition()
-			.duration(1000)
-			.attr('height', (d) => {
-                if (d[dataKey] == 0) {
+            .duration(1000)
+			.attr('height', (d, i) => {
+                let value = Math.log((height - 2 * padding) * d[dataKey] / max) * 50;
+
+                if (!d[dataKey] || value <= 1) {
                     return 1
                 } else {
-                    let temp1 =(height - 2 * padding) * d[dataKey] / max
-                    let temp2 = Math.log((height - 2 * padding) * d[dataKey] / max) * 50
-
-                    console.log(temp1, temp2)
-                    return (temp2);
+                    return value;
                 }
             })
-			.attr('y', (d) => {
-                if (d[dataKey] == 0) {
+			.attr('y', (d, i) => {
+                let value = Math.log((height - 2 * padding) * d[dataKey] / max) * 50
+                if (value <= 1) {
                     return (height - padding - 1)
                 } else {
-                    let temp1 =(height - 2 * padding) * d[dataKey] / max;
-                    let temp2 = Math.log((height - 2 * padding) * d[dataKey] / max) * 50;
-
-                    return (height - padding - temp2)
+                    return (height - padding - value)
                 }
             })
+            .attr('x', (d, i) => {
+                return (i * (width - 2 * padding) / filteredData.length + padding)
+            })
+
+            // Contours et couleur des rect
 			.attr('stroke', '#000000')
 			.attr('fill', (d, i) => {
                 let color = colorByValue(max, 0, d[dataKey])
                 return color;
-            });
+            })
 	}
 }
